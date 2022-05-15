@@ -63,12 +63,12 @@
   SetAlarmRelativeState:
     speech:
       text: >
-        {%- if hours is none -%}
-          Setting an alarm for {{ minutes }} minutes
-        {%- elif minutes is none -%}
-          Setting an alarm for {{ hours }} hours
+        {%- if hours is defined and hours != none -%}
+          Setting an timer for {{ hours }} hours
+        {%- elif minutes is defined and minutes != none -%}
+          Setting an timer for {{ minutes }} minutes
         {%- else -%}
-          Setting an alarm for {{ hours }} hours and {{ minutes }} minutes
+          Setting an timer for {{ hours }} hours and {{ minutes }} minutes
         {%- endif -%}
     action:
       - service: pyscript.set_alarm_rel
@@ -78,6 +78,6 @@
   StopAlarm:    
     speech:
       text: >
-        Stopping the alarm
+        Stopping the timer
     action:
       - service: pyscript.stop_alarm
