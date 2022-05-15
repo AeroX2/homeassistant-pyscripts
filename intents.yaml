@@ -1,0 +1,83 @@
+  GetTime:
+    speech:
+      text: The time is {{ now().strftime("%H %M") }}
+  
+  ChangeBlindsState:
+    speech:
+      text: >
+        {%- if state.lower() == "open" -%}
+          Opening the blinds
+        {%- elif state.lower() == "close" -%}
+          Closing the blinds
+        {%- endif -%}
+    action:
+      - service_template: >
+          {%- if state.lower() == "open" -%}
+            pyscript.open_blinds
+          {%- elif state.lower() == "close" -%}
+            pyscript.close_blinds
+          {%- endif -%}
+
+  ChangeLightState:
+    speech:
+      text: >
+        {%- if state.lower() == "on" -%}
+          Turning on the lights
+        {%- elif state.lower() == "off" -%}
+          Turning off the lights
+        {%- endif -%}
+    action:
+      - service_template: >
+          {%- if state.lower() == "on" -%}
+            light.turn_on
+          {%- elif state.lower() == "off" -%}
+            light.turn_off
+          {%- endif -%}
+        target:
+          area_id: bedroom
+          
+  ChangeBlindsAndLightsState:
+    speech:
+      text: >
+        {%- if state.lower() == "open" -%}
+          Opening the blinds and turning on the lights
+        {%- elif state.lower() == "close" -%}
+          Closing the blinds and turning off the lights
+        {%- endif -%}
+    action:
+      - service_template: >
+          {%- if state.lower() == "open" -%}
+            pyscript.open_blinds
+          {%- elif state.lower() == "close" -%}
+            pyscript.close_blinds
+          {%- endif -%}
+      - service_template: >
+          {%- if state.lower() == "open" -%}
+            light.turn_on
+          {%- elif state.lower() == "close" -%}
+            light.turn_off
+          {%- endif -%}
+        target:
+          area_id: bedroom
+
+  SetAlarmRelativeState:
+    speech:
+      text: >
+        {%- if hours is none -%}
+          Setting an alarm for {{ minutes }} minutes
+        {%- elif minutes is none -%}
+          Setting an alarm for {{ hours }} hours
+        {%- else -%}
+          Setting an alarm for {{ hours }} hours and {{ minutes }} minutes
+        {%- endif -%}
+    action:
+      - service: pyscript.set_alarm_rel
+        data: 
+          time: "{{ hours or '00' }}:{{ minutes or '00' }}"
+          
+  StopAlarm:    
+    speech:
+      text: >
+        Stopping the alarm
+    action:
+      - service: pyscript.stop_alarm

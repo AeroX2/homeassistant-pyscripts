@@ -1,6 +1,7 @@
 import time
 import sched
-from threading import Thread
+from queue import Empty
+from multiprocessing import Queue
 
 import board
 import digitalio
@@ -11,36 +12,50 @@ import adafruit_ssd1306
 
 import pyscript
 
-class ClockService():
-    
+
+class ClockService:
+
     running = False
     scheduler = sched.scheduler()
     wave_obj = None
 
+    @pyscript_compile
     def beep(self):
-        import simpleaudio as sa
+        import requests
 
-        if self.wave_obj is None:
-            self.wave_obj = sa.WaveObject.from_wave_file("beep.wav")
-
-        for _ in range(3):
-            play_obj = self.wave_obj.play()
-            play_obj.wait_done()
-
-    def set_alarm(self, alarm):
-        if self.scheduler.empty():
-            self.scheduler.enter(time.gmtime(alarm), 1, self.beep)
+        f = open("/config/pyscript/beep.wav", "rb")
+        fd = f.read()
+        r = requests.post(
+            "http://localhost:12101/api/play-wav",
+            headers={"Content-Type": "audio/wav"},
+            data=fd,
+        )
 
     @pyscript_compile
-    def draw_loop(self):
+    def set_alarm_rel(self, time):
+        hours, minutes = map(int, time.split(":"))
+        delta = hours * 60 * 60 + minutes * 60
+        if self.scheduler.empty():
+            print("Setting an alarm for {} seconds".format(delta))
+            self.scheduler.enter(delta, 1, self.beep)
+
+    # def set_alarm_abs(self, time):
+    #    if self.scheduler.empty():
+    #        self.scheduler.enter(time.gmtime(time), 1, self.beep)
+
+    @pyscript_compile
+    def loop(self, q):
         print("Starting draw loop")
-        
+
         WIDTH = 128
         HEIGHT = 32
 
         i2c = board.I2C()
         oled = adafruit_ssd1306.SSD1306_I2C(
-            WIDTH, HEIGHT, i2c, addr=0x3C,
+            WIDTH,
+            HEIGHT,
+            i2c,
+            addr=0x3C,
         )
 
         font = ImageFont.load_default()
@@ -48,10 +63,19 @@ class ClockService():
         print("Loading finished")
 
         self.running = True
-        while self.running:
-            #oled.fill(0)
-            #oled.show()
-            
+        while True:
+            try:
+                m, d = q.get_nowait()
+                if m == "stop":
+                    self.running = False
+                    break
+                elif m == "set_alarm_rel":
+                    self.set_alarm_rel(d)
+                elif m == "stop_alarm":
+                    list(map(self.scheduler.cancel, self.scheduler.queue))
+            except Empty:
+                pass
+
             image = Image.new("1", (oled.width, oled.height))
             draw = ImageDraw.Draw(image)
 
@@ -85,17 +109,32 @@ class ClockService():
             oled.image(image)
             oled.show()
             time.sleep(0.01)
-    
-    @pyscript_compile
-    def stop(self):
-        self.running = False
 
+
+pyscript.queue = Queue()
 pyscript.clock_service = ClockService()
+
 
 @service
 def start_clock():
-    task.executor(pyscript.clock_service.draw_loop)
-        
+    task.executor(pyscript.clock_service.loop, pyscript.queue)
+
+
 @service
 def stop_clock():
-    task.executor(pyscript.clock_service.stop)
+    pyscript.queue.put(("stop", ""))
+
+
+@service
+def set_alarm_rel(time):
+    pyscript.queue.put(("set_alarm_rel", time))
+
+
+@service
+def stop_alarm():
+    pyscript.queue.put(("stop_alarm", ""))
+
+
+@service
+def beep():
+    task.executor(pyscript.clock_service.beep)

@@ -1,2 +1,3 @@
 Pillow
 adafruit-circuitpython-ssd1306
+requests

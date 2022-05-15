@@ -1,0 +1,43 @@
+recorder:
+  purge_keep_days: 2
+  db_url: 'sqlite:///:memory:'
+  
+logger:
+  default: critical
+  logs:
+    # log level for HA core
+    homeassistant.core: fatal
+    custom_components.pyscript: debug
+  
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+intent:
+intent_script: !include intents.yaml
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+sensor:
+  - platform: command_line
+    name: CPU Temperature
+    command: "cat /sys/class/thermal/thermal_zone0/temp"
+    # If errors occur, make sure configuration file is encoded as UTF-8
+    unit_of_measurement: "°C"
+    value_template: "{{ value | multiply(0.001) | round(1) }}"
+    
+cover:
+  - platform: template
+    covers:
+      blinds:
+        device_class: blind
+        friendly_name: "Blinds"
+        open_cover:
+          service: pyscript.open_blinds
+        close_cover:
+          service: pyscript.close_blinds
